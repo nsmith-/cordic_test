@@ -100,10 +100,10 @@ void CordicXilinx::operator() ( int32_t aX , int32_t aY , int32_t& aPhi , uint32
         }
         else
         {
-            // West, rotate by +- pi depending on sgn(y)
+            // West, rotate by pi
             x = -x;
             y = -y;
-            rotation += (y>0) ? encodeAngle(M_PI) : encodeAngle(-M_PI);
+            rotation += encodeAngle(M_PI);
         }
     }
     if ( debug_ ) std::cout << "Coarse rotate" << std::endl;
@@ -123,5 +123,8 @@ void CordicXilinx::operator() ( int32_t aX , int32_t aY , int32_t& aPhi , uint32
     
     // need a little extra room for the last multiplication (2*internalBits_ size)
     aMagnitude = ((long) x * (long) scaleFactor_)>>(2*internalBits_-outputBits_);
+
+    // Xilinx seems to just mod to [-pi,pi]
+    if ( rotation > encodeAngle(M_PI) ) rotation -= 2*encodeAngle(M_PI)+1;
     aPhi = (-rotation)>>(internalBits_-outputBits_);
 }

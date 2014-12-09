@@ -19,8 +19,8 @@ int main (int argc, char ** argv)
     int32_t phaseOut;
     uint32_t magOut;
     if (argc == 3) {
-        int x = atoi(argv[1])*32;
-        int y = atoi(argv[2])*32;
+        int x = atoi(argv[1]);
+        int y = atoi(argv[2]);
         nick(x, y, phaseOut, magOut);
         std::cout << "me  mag = " << magOut << ", phase = " << phaseOut << std::endl;
         xilinx(x, y, phaseOut, magOut);
@@ -32,10 +32,11 @@ int main (int argc, char ** argv)
     else
     {
         int count = 0;
-        for(int i=-4000; i<=4000; ++i)
+        int range = 205887;
+        for(int i=-range; i<=range; ++i)
         {
-            int a = pow(2.43, 14)*cos(i*M_PI/4000);
-            int b = pow(2.43, 14)*sin(i*M_PI/4000);
+            int a = pow(2.43, 14)*cos(i*M_PI/range);
+            int b = pow(2.43, 14)*sin(i*M_PI/range);
             nick(a, b, phaseOut, magOut);
             int phase1=phaseOut;
             int mag1=magOut;
@@ -48,7 +49,7 @@ int main (int argc, char ** argv)
                 count++;
             }
         }
-        std::cout << "Bad angle count: " << count << std::endl;
+        std::cout << "Bad angle count: " << count << " of " << 2*range+1 << std::endl;
     }
 
     for(int i=40; i<40; ++i)
