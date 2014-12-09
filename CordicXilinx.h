@@ -10,7 +10,7 @@ class CordicXilinx
     CordicXilinx(int inputBits, int outputBits, int phiScale, bool debug=false);
     virtual ~CordicXilinx();
 
-    void operator() ( int32_t aX , int32_t aY , int32_t& aPhi , uint32_t& aMagnitude );
+    void operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi , uint32_t& aMagnitude );
 
     // Returns angle in fixed point according to internalBits_ precision
     // The integer part is 3 bits (i.e. -4 to 3)

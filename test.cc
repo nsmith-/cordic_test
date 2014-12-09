@@ -33,23 +33,31 @@ int main (int argc, char ** argv)
     {
         int count = 0;
         int range = 205887;
-        for(int i=-range; i<=range; ++i)
+        auto compare = [&xilinx,&nick](int x, int y) -> bool
         {
-            int a = pow(2.43, 14)*cos(i*M_PI/range);
-            int b = pow(2.43, 14)*sin(i*M_PI/range);
-            nick(a, b, phaseOut, magOut);
-            int phase1=phaseOut;
-            int mag1=magOut;
-            xilinx(a, b, phaseOut, magOut);
-            if ( mag1 != magOut || phase1 != phaseOut )
+            int phase1;
+            unsigned mag1;
+            nick(x, y, phase1, mag1);
+            int phase2;
+            unsigned mag2;
+            xilinx(x, y, phase2, mag2);
+            if ( mag1 != mag2 || phase1 != phase2 ) return false;
+            return true;
+        };
+        std::vector<int> radii({1, 23405, 840, 12, 123456});
+        for(int r : radii)
+        {
+            for(int i=-range; i<=range; ++i)
             {
-                std::cout << "in x: " << a << " y: " << b << std::endl;
-                std::cout << "me  mag = " << mag1 << ", phase = " << phase1 << std::endl;
-                std::cout << "XIP mag = " << magOut << ", phase = " << phaseOut << std::endl;
-                count++;
+                int a = r*cos(i*M_PI/range);
+                int b = r*sin(i*M_PI/range);
+                if ( !compare(a, b) )
+                {
+                    count++;
+                }
             }
         }
-        std::cout << "Bad angle count: " << count << " of " << 2*range+1 << std::endl;
+        std::cout << "Bad angle count: " << count << " of " << (2*range+1)*radii.size() << std::endl;
     }
 
     for(int i=40; i<40; ++i)

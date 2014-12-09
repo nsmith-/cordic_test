@@ -27,7 +27,7 @@ CordicXilinx::CordicXilinx(int inputBits, int outputBits, int phiScale, bool deb
     }
     scaleFactor_ = scaleFactor*pow(2., internalBits_);
 
-    printf("Cordic setup: %d iterations, %d internal bits, scale factor = %d\n", iterations_, internalBits_, scaleFactor_);
+    if ( debug_ ) printf("Cordic setup: %d iterations, %d internal bits, scale factor = %d\n", iterations_, internalBits_, scaleFactor_);
 }
 
 CordicXilinx::~CordicXilinx()
@@ -41,34 +41,40 @@ int CordicXilinx::encodeAngle(const double angleFloat)
     return angleFloat*pow(2., internalBits_-3)+0.5;
 }
 
-void CordicXilinx::operator() ( int32_t aX , int32_t aY , int32_t& aPhi , uint32_t& aMagnitude )
+void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi , uint32_t& aMagnitude )
 {
+    // Assumption in algorithm is that arithmetic shifts are used for ints (as opposed to logical shifts)
+    static_assert( ((int) -1)>>3 == (int) -1 , "Signed ints need to use arithmetic shifts for this algorithm to work properly!");
+
+    // Input checks
+    // Input is in 2QN format, and for xilinx
+    // the max is +- 1.0000...
+    assert(abs(xInput) <= (1<<(inputBits_-1)));
+    assert(abs(yInput) <= (1<<(inputBits_-1)));
+    
     // Rotation to get from current vector to origin
     // must invert to get aPhi
     int rotation(0);
+    int x,y;
+
+    // Debug tool
+    auto printVals = [&x,&y,&rotation,this]
+    {
+        printf("x: % 8d y: % 8d phi: % 8d outphi: % 8d float phi = % f\n", x, y, rotation, rotation/pow(2., internalBits_-3), (abs(rotation)>>(internalBits_-outputBits_)) * ((rotation>0) ? -1:1) );
+    };
 
     // Convert to internal precision
-    int x,y;
     if ( internalBits_ > inputBits_ )
     {
-        x = (abs(aX) << (internalBits_-inputBits_)) * ((aX>0) ? 1:-1);
-        y = (abs(aY) << (internalBits_-inputBits_)) * ((aY>0) ? 1:-1);
+        x = xInput << (internalBits_-inputBits_);
+        y = yInput << (internalBits_-inputBits_);
     }
     else
     {
-        x = (abs(aX) >> (inputBits_-internalBits_)) * ((aX>0) ? 1:-1);
-        y = (abs(aY) >> (inputBits_-internalBits_)) * ((aY>0) ? 1:-1);
+        x = xInput >> (inputBits_-internalBits_);
+        y = yInput >> (inputBits_-internalBits_);
     }
-    auto printVals = [&x,&y,&rotation,this]{printf("x: % 8d y: % 8d phi: % 8d outphi: % 8d float phi = % f\n", x, y, rotation, rotation/pow(2., internalBits_-3), (abs(rotation)>>(internalBits_-outputBits_)) * ((rotation>0) ? -1:1) );};
     if ( debug_ ) printVals();
-
-    if ( x == 0 && y == 0 )
-    {
-        // We're done
-        aPhi = 0;
-        aMagnitude = 0;
-        return;
-    }
 
     // Coarse rotate to [-pi/4,pi/4)
     if ( x-y >= 0 )
