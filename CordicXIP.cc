@@ -26,6 +26,7 @@ CordicXIP::CordicXIP(int inputBits, int magBits, int phiBits) :
     config.Precision      = 0;
     config.RoundMode      = XIP_CORDIC_V6_0_ROUND_TRUNCATE;
     config.ScaleComp      = XIP_CORDIC_V6_0_SCALE_EMB_MULT;
+    //config.ScaleComp      = XIP_CORDIC_V6_0_SCALE_NONE;
 
     xip_handle_ = xip_cordic_v6_0_create(&config, [](void* dummy, int error, const char* msg)->void{std::cerr << msg << std::endl;}, 0);
 }

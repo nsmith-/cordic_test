@@ -2,8 +2,11 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
+#include <random>
+#include <atomic>
+#include <thread>
+#include <chrono>
 
-#include "../interface/Cordic.h"
 #include "CordicXIP.h"
 #include "CordicXilinx.h"
 
@@ -12,13 +15,25 @@ int main (int argc, char ** argv)
     // CordicXIP(int inputBits, int magBits, int phiBits);
     CordicXIP xilinx(24, 19, 19);
     // CordicXilinx(int inputBits, int outputBits, int phiScale);
-    CordicXilinx nick(24, 19, 1<<19, argc > 1);
-    // Cordic( const uint32_t& aPhiScale , const uint32_t& aMagnitudeBits , const uint32_t& aSteps );
-    Cordic andy(14, 24, 26);
+    CordicXilinx nick(24, 19, 1<<19, argc > 2);
+    
+    auto compare = [&xilinx,&nick](int x, int y) -> bool
+    {
+        int phase1;
+        unsigned mag1;
+        nick(x, y, phase1, mag1);
+        int phase2;
+        unsigned mag2;
+        xilinx(x, y, phase2, mag2);
+        if ( mag1 != mag2 || phase1 != phase2 ) return false;
+        return true;
+    };
 
-    int32_t phaseOut;
-    uint32_t magOut;
+
     if (argc == 3) {
+        // Test x and y inputs
+        int32_t phaseOut;
+        uint32_t magOut;
         int x = atoi(argv[1]);
         int y = atoi(argv[2]);
         nick(x, y, phaseOut, magOut);
@@ -29,22 +44,12 @@ int main (int argc, char ** argv)
         phaseOut = pow(2.,16)*atan2(y*1.,x*1.);
         std::cout << "FPU mag = " << magOut << ", phase = " << phaseOut << std::endl;
     }
-    else
+    else if (argc == 2)
     {
+        // Test phi LSB at a few radii
         int count = 0;
         int range = 205887;
-        auto compare = [&xilinx,&nick](int x, int y) -> bool
-        {
-            int phase1;
-            unsigned mag1;
-            nick(x, y, phase1, mag1);
-            int phase2;
-            unsigned mag2;
-            xilinx(x, y, phase2, mag2);
-            if ( mag1 != mag2 || phase1 != phase2 ) return false;
-            return true;
-        };
-        std::vector<int> radii({1, 23405, 840, 12, 123456});
+        std::vector<int> radii({1, 23405, 840, 1200003, 123456, 8388608});
         for(int r : radii)
         {
             for(int i=-range; i<=range; ++i)
@@ -59,19 +64,41 @@ int main (int argc, char ** argv)
         }
         std::cout << "Bad angle count: " << count << " of " << (2*range+1)*radii.size() << std::endl;
     }
-
-    for(int i=40; i<40; ++i)
+    else
     {
-        int a = pow(2., 9)*cos(i*M_PI/20);
-        int b = pow(2., 9)*sin(i*M_PI/20);
-        std::cout << "a = " << a << " b = " << b << std::endl;
-        xilinx(a, b, phaseOut, magOut);
-        int andyPhase = round( 14*36.*phaseOut/pow(2.,16)/M_PI );
-        if ( andyPhase < 0 ) andyPhase += 2*504;
-        std::cout << "xilinx mag = " << magOut << " phase = " << andyPhase << " real phi = " << phaseOut/pow(2.,16) << std::endl;
-        andy(a, b, phaseOut, magOut);
-        double realPhase = phaseOut*M_PI/14/36;
-        if ( realPhase > M_PI ) realPhase -= 2*M_PI;
-        std::cout << "andy mag = " << (magOut>>5) << " phase = " << phaseOut << " real phi = " << realPhase << std::endl;
+        // Test random input
+        std::independent_bits_engine<std::mt19937, 24, uint32_t> rand(42);
+        int runs(0), errors(0);
+        std::atomic_bool run(true);
+        std::thread keywatch([&run]()
+        {
+            std::cout << "Press q<Enter> to exit" << std::endl;
+            char c;
+            while(run)
+            {
+                std::cin >> c;
+                if ( c == 'q' )
+                {
+                    run=false;
+                    std::cout << "Stopping..." << std::endl;
+                }
+            }
+        });
+        while ( run )
+        {
+            runs++;
+            // Uniform in [-2^23, 2^23)
+            int x = rand()-(1<<23);
+            int y = rand()-(1<<23);
+            if ( !compare(x,y) )
+            {
+                errors++;
+                std::cout << "err x,y: " << x << " " << y << std::endl;
+            }
+            
+            if ( runs % 10000 == 0 ) printf("\rErrors: % 8d / % 8d  (% 2.2f\%)", errors, runs, errors*100. / runs);
+            std::cout.flush();
+        }
+        keywatch.join();
     }
 }

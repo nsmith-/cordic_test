@@ -25,7 +25,7 @@ CordicXilinx::CordicXilinx(int inputBits, int outputBits, int phiScale, bool deb
         rotations_.push_back(rotation);
         scaleFactor *= pow(1+pow(2.,-2*i), -0.5);
     }
-    scaleFactor_ = scaleFactor*pow(2., internalBits_);
+    scaleFactor_ = scaleFactor*pow(2., internalBits_-1)+0.5;
 
     if ( debug_ ) printf("Cordic setup: %d iterations, %d internal bits, scale factor = %d\n", iterations_, internalBits_, scaleFactor_);
 }
@@ -127,8 +127,8 @@ void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi 
         if ( debug_ ) printVals();
     }
     
-    // need a little extra room for the last multiplication (2*internalBits_ size)
-    aMagnitude = ((long) x * (long) scaleFactor_)>>(2*internalBits_-outputBits_);
+    // need a little extra room for the last multiplication
+    aMagnitude = ((long) x * (long) scaleFactor_)>>(2*internalBits_-outputBits_-1);
 
     // Xilinx seems to just mod to [-pi,pi]
     if ( rotation > encodeAngle(M_PI) ) rotation -= 2*encodeAngle(M_PI)+1;
