@@ -30,18 +30,14 @@ CordicXilinx::CordicXilinx(int inputBits, int outputBits, int phiScale, bool deb
     if ( debug_ ) printf("Cordic setup: %d iterations, %d internal bits, scale factor = %d\n", iterations_, internalBits_, scaleFactor_);
 }
 
-CordicXilinx::~CordicXilinx()
-{
-}
-
-int CordicXilinx::encodeAngle(const double angleFloat)
+int CordicXilinx::encodeAngle(const double angleFloat) const
 {
     assert(abs(angleFloat)<=M_PI);
     // Xilinx seems to store rounded rotation table
     return angleFloat*pow(2., internalBits_-3)+0.5;
 }
 
-void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi , uint32_t& aMagnitude )
+void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi , uint32_t& aMagnitude ) const
 {
     // Assumption in algorithm is that arithmetic shifts are used for ints (as opposed to logical shifts)
     static_assert( ((int) -1)>>3 == (int) -1 , "Signed ints need to use arithmetic shifts for this algorithm to work properly!");

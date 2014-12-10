@@ -67,7 +67,7 @@ int main (int argc, char ** argv)
     else
     {
         // Test random input
-        std::independent_bits_engine<std::mt19937, 24, uint32_t> rand(42);
+        std::mt19937 rand(42);
         int runs(0), errors(0);
         std::atomic_bool run(true);
         std::thread keywatch([&run]()
@@ -88,8 +88,8 @@ int main (int argc, char ** argv)
         {
             runs++;
             // Uniform in [-2^23, 2^23)
-            int x = rand()-(1<<23);
-            int y = rand()-(1<<23);
+            int x = (rand()>>8)-(1<<23);
+            int y = (rand()>>8)-(1<<23);
             if ( !compare(x,y) )
             {
                 errors++;
