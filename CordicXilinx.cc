@@ -26,6 +26,11 @@ CordicXilinx::CordicXilinx(int inputBits, int outputBits, int phiScale, bool deb
         scaleFactor *= pow(1+pow(2.,-2*i), -0.5);
     }
     scaleFactor_ = scaleFactor*pow(2., internalBits_-1)+0.5;
+    
+    // Precompute angles table for speed
+    encodedAngles_[Pi] = encodeAngle(M_PI);
+    encodedAngles_[HalfPi] = encodeAngle(M_PI/2);
+    encodedAngles_[NHalfPi] = encodeAngle(-M_PI/2);
 
     if ( debug_ ) printf("Cordic setup: %d iterations, %d internal bits, scale factor = %d\n", iterations_, internalBits_, scaleFactor_);
 }
@@ -86,7 +91,7 @@ void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi 
             int ytmp = x;
             x = xtmp;
             y = ytmp;
-            rotation += encodeAngle(M_PI/2);
+            rotation += encodedAngles_[HalfPi];
         }
     }
     else
@@ -98,14 +103,14 @@ void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi 
             int ytmp = -x;
             x = xtmp;
             y = ytmp;
-            rotation += encodeAngle(-M_PI/2);
+            rotation += encodedAngles_[NHalfPi];
         }
         else
         {
             // West, rotate by pi
             x = -x;
             y = -y;
-            rotation += encodeAngle(M_PI);
+            rotation += encodedAngles_[Pi];
         }
     }
     if ( debug_ ) std::cout << "Coarse rotate" << std::endl;
@@ -127,6 +132,6 @@ void CordicXilinx::operator() ( int32_t xInput , int32_t yInput , int32_t& aPhi 
     aMagnitude = ((long) x * (long) scaleFactor_)>>(2*internalBits_-outputBits_-1);
 
     // Xilinx seems to just mod to [-pi,pi]
-    if ( rotation > encodeAngle(M_PI) ) rotation -= 2*encodeAngle(M_PI)+1;
+    if ( rotation > encodedAngles_[Pi] ) rotation -= 2*encodedAngles_[Pi]+1;
     aPhi = (-rotation)>>(internalBits_-outputBits_);
 }

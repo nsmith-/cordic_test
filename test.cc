@@ -63,6 +63,24 @@ int main (int argc, char ** argv)
             }
         }
         std::cout << "Bad angle count: " << count << " of " << (2*range+1)*radii.size() << std::endl;
+
+        // Test some values from Ben
+        std::vector<int> xin({0x00036E, 0x00032B, 0xFFF970, 0xFFF9AE, 0x00040E, 0x000480});
+        std::vector<int> yin({0x0000D7, 0xFFFF80, 0xFFFD9C, 0xFFFE23, 0x000369, 0x0003C6});
+        std::vector<int> mag  ({0x0001C, 0x00019, 0x00038, 0x00034, 0x0002A, 0x0002E});
+        std::vector<int> phase({0x03D56, 0x7D7E0, 0x5350C, 0x52516, 0x0B38C, 0x0B30C});
+        // fix int size
+        for(auto& x : xin) if ( x > 1<<23 ) x -= 1<<24;
+        for(auto& y : yin) if ( y > 1<<23 ) y -= 1<<24;
+        for(auto& x : phase) if ( x > 1<<18 ) x -= 1<<19;
+
+        for(int i=0; i<6; ++i)
+        {
+            int nphase;
+            uint32_t nmag;
+            nick(xin[i], yin[i], nphase, nmag);
+            std::cout << xin[i] << ", " << yin[i] << " --> " << mag[i] << ", " << phase[i] << "      " << nmag << ", " << nphase << ", " << ( compare(xin[i], yin[i]) ? "good":"bad" ) << std::endl;
+        }
     }
     else
     {
@@ -84,6 +102,8 @@ int main (int argc, char ** argv)
                 }
             }
         });
+        std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
+        start = std::chrono::high_resolution_clock::now();
         while ( run )
         {
             runs++;
@@ -96,7 +116,13 @@ int main (int argc, char ** argv)
                 std::cout << "err x,y: " << x << " " << y << std::endl;
             }
             
-            if ( runs % 10000 == 0 ) printf("\rErrors: % 8d / % 8d  (% 2.2f\%)", errors, runs, errors*100. / runs);
+            if ( runs % 100000 == 0 )
+            {
+                end = std::chrono::high_resolution_clock::now();
+                double us = std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
+                start = end;
+                printf("\rErrors: % 8d / % 8d  (% 2.2f\%)   Rate: % 4.0f kHz", errors, runs, errors*100. / runs, 1.e8/us);
+            }
             std::cout.flush();
         }
         keywatch.join();

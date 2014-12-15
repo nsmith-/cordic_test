@@ -2,6 +2,7 @@
 #define CordicXilinx_H
 
 #include <vector>
+#include <array>
 #include <stdint.h>
 
 class CordicXilinx
@@ -24,6 +25,8 @@ class CordicXilinx
     const bool debug_;
 
     std::vector<int> rotations_;
+    std::array<int, 3> encodedAngles_;
+    enum { Pi, HalfPi, NHalfPi };
     int iterations_;
     int internalBits_;
     int scaleFactor_;
