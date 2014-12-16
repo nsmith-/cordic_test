@@ -1,0 +1,14 @@
+Use ./make.sh to make
+
+Comparing emulator with xilinx closed source library:
+Test integer inputs with ./test 123 456
+Run some unit circle and preliminary hardware-compare checks with ./test (anything)
+
+Comparing emulator/library with FPGA captures:
+./readDat captureFile.dat
+Adjust latency
+./readDat captureFile.dat #cycles
+
+Captures are expected to be in hex format [2 bit pad][24 bit x][24 bit y][19 bit mag][19 bit phase]\n
+e.g. 3FFED83FFF390000CFD7E0
+An example file is nicksCordicOutput.dat
