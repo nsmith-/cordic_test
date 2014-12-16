@@ -1,4 +1,6 @@
 Use ./make.sh to make
+You will need the Xilinx CORDIC emulation library unzipped in this folder
+'cordic_v6_0_bitacc_cmodel_lin64.zip'
 
 Comparing emulator with xilinx closed source library:
 Test integer inputs with ./test 123 456
