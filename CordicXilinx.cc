@@ -1,3 +1,26 @@
+/**\class CordicXilinx CordicXilinx.cc L1Trigger/L1TCalorimeter/src/firmware/CordicXilinx.cc
+
+ Description: Emulates parts of the Xilinx DSP IP CORDIC routine, as described in
+              http://www.xilinx.com/support/documentation/ip_documentation/cordic/v6_0/pg105-cordic.pdf
+              This class only implements the vector translation, returning magnitude and phase, given signed
+              x and y inputs.  The inputs and outputs are not packed, so that normal signed integer
+              arithmetic works as expected.  They can easily be packed into a fixed width by abs() and placing
+              a sign bit at the appropriate offset.
+              The applicable configuration parameters that are being emulated are the following:
+                - Functional Selection: Translate
+                - Phase Format: Radians
+                - Round Mode: Truncate
+                - Advanced Configuration Parameters: Iterations=0, Precision=0, Coarse Rotation, Compensation Scaling = Embedded Multiplier
+              In addition, an arbitrary input and output width can be specified, HOWEVER, only in=24, out=19 has been rigorously tested
+              against the Xilinx proprietary emulator.
+
+ Tests: Full circle at various magnitudes, including maximum; a few billion random inputs
+        Limited hardware comparisons have shown agreement as well.
+
+ Original Author:  Nick Smith ( nick.smith@cern.ch )
+
+*/
+
 //#include "L1Trigger/L1TCalorimeter/interface/CordicXilinx.h"
 #include "CordicXilinx.h"
 
@@ -7,10 +30,9 @@
 #include <cassert>
 #include <math.h>
 
-CordicXilinx::CordicXilinx(int inputBits, int outputBits, int phiScale, bool debug) :
+CordicXilinx::CordicXilinx(int inputBits, int outputBits, bool debug) :
     inputBits_(inputBits),
     outputBits_(outputBits),
-    phiScale_(phiScale),
     debug_(debug)
 {
     // Coarse rotation lowers necessary iterations by 2
