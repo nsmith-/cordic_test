@@ -16,6 +16,7 @@
 
  Tests: Full circle at various magnitudes, including maximum; a few billion random inputs
         Limited hardware comparisons have shown agreement as well.
+        Test framework: https://github.com/nsmith-/cordic_test
 
  Original Author:  Nick Smith ( nick.smith@cern.ch )
 
