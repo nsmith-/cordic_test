@@ -3,13 +3,58 @@
 #include <vector>
 #include <tuple>
 #include <cmath>
+#include <cassert>
 
 #include "CordicXilinx.h"
 
-std::tuple<int, int, int>
-doSumAndMET(std::vector<std::pair<int, int>>& regionEt);
+class Region
+{
+  public:
+    Region(int crate, int card, int region, int etval) : icrate(crate), icard(card), irgn(region), et(etval)
+    {
+      assert(icrate >= 0 && icrate < 18);
+      assert(icard >= 0 && icard < 7);
+      assert((irgn & -2) == 0);
+      assert(et>=0 && et<(1<<10));
+    };
+    int icrate;
+    int icard;
+    int irgn;
+    int et;
+
+    int iphi()
+    {
+      int phi_index = icrate % 9;
+      if ((icard == 0) || (icard == 2) || (icard == 4))
+        phi_index = phi_index * 2;
+      else if ((icard == 1) || (icard == 3) || (icard == 5))
+        phi_index = phi_index * 2 + 1;
+      else if (icard == 6)
+        phi_index = phi_index * 2 + irgn;
+      return (22 - phi_index) % 18;
+    };
+};
+
+std::tuple<int, int, int> doSumAndMET(std::vector<Region>& regionEt);
+int cordicToMETPhi(int phase);
 
 CordicXilinx cordic(24, 19);
+std::array<long, 5> cosines
+{
+  static_cast<long>(pow(2,30)*cos( 0*M_PI/180)),
+  static_cast<long>(pow(2,30)*cos(20*M_PI/180)),
+  static_cast<long>(pow(2,30)*cos(40*M_PI/180)),
+  static_cast<long>(pow(2,30)*cos(60*M_PI/180)),
+  static_cast<long>(pow(2,30)*cos(80*M_PI/180))
+};
+std::array<long, 5> sines
+{
+  static_cast<long>(pow(2,30)*sin( 0*M_PI/180)),
+  static_cast<long>(pow(2,30)*sin(20*M_PI/180)),
+  static_cast<long>(pow(2,30)*sin(40*M_PI/180)),
+  static_cast<long>(pow(2,30)*sin(60*M_PI/180)),
+  static_cast<long>(pow(2,30)*sin(80*M_PI/180))
+};
 
 int main (int argc, char ** argv)
 {
@@ -38,10 +83,10 @@ int main (int argc, char ** argv)
     }
     else
     {
-      std::vector<std::pair<int, int>> regionET = {
-        {1, 12},
-        {3, 9},
-        {15, 1}
+      std::vector<Region> regionET = {
+        {1,  2, 1, 120},
+        {3,  4, 0, 32},
+        {15, 1, 1, 88}
       };
       auto result = doSumAndMET(regionET);
       std::cout << "sum_et: " << std::get<0>(result) << ", met: " << std::get<1>(result) << ", met phi: " << std::get<2>(result) << std::endl;
@@ -49,7 +94,7 @@ int main (int argc, char ** argv)
 }
 
 std::tuple<int, int, int>
-doSumAndMET(std::vector<std::pair<int, int>>& regionEt)
+doSumAndMET(std::vector<Region>& regionEt)
 {
 // if any region et/ht has overflow bit, set sumET overflow bit
 // met/mht same, breakout to function
@@ -76,5 +121,85 @@ doSumAndMET(std::vector<std::pair<int, int>>& regionEt)
 // mht shift down truncate to 5
 // So etsum from 180 to 185 degress is MET phi of 0
 // 13 13 13 8 7 5
-  return std::make_tuple(1, 1, 1);
+  std::array<int, 18> sumEtaPos{};
+  std::array<int, 18> sumEtaNeg{};
+  for ( auto& r : regionEt )
+  {
+    if ( r.icrate < 9 )
+      sumEtaNeg[r.iphi()] += r.et;
+    else
+      sumEtaPos[r.iphi()] += r.et;
+  }
+
+  std::array<int, 18> sumEta{};
+  int sumEt(0);
+  for(int i=0; i<sumEta.size(); ++i)
+  {
+    assert(sumEtaPos[i] >= 0 && sumEtaNeg[i] >= 0);
+    sumEta[i] = sumEtaPos[i] + sumEtaNeg[i];
+    sumEt += sumEta[i];
+  }
+  sumEt = (sumEt % (1<<12)) | ((sumEt >= (1<<12)) ? (1<<12):0);
+  assert(sumEt>=0 && sumEt < (1<<13));
+
+  // 0, 20, 40, 60, 80 degrees
+  std::array<int, 5> sumsForCos{};
+  std::array<int, 5> sumsForSin{};
+  for(int iphi=0; iphi<sumEta.size(); ++iphi)
+  {
+    if ( iphi < 5 )
+    {
+      sumsForCos[iphi] += sumEta[iphi];
+      sumsForSin[iphi] += sumEta[iphi];
+    }
+    else if ( iphi < 9 )
+    {
+      sumsForCos[9-iphi] -= sumEta[iphi];
+      sumsForSin[9-iphi] += sumEta[iphi];
+    }
+    else if ( iphi < 14 )
+    {
+      sumsForCos[iphi-9] -= sumEta[iphi];
+      sumsForSin[iphi-9] -= sumEta[iphi];
+    }
+    else
+    {
+      sumsForCos[18-iphi] += sumEta[iphi];
+      sumsForSin[18-iphi] -= sumEta[iphi];
+    }
+  }
+
+  long sumX(0l);
+  long sumY(0l);
+  for(int i=0; i<5; ++i)
+  {
+    sumX += sumsForCos[i]*cosines[i];
+    sumY += sumsForSin[i]*sines[i];
+  }
+  assert(abs(sumX)<(1l<<48) && abs(sumY)<(1l<<48));
+  int cordicX = sumX>>25;
+  int cordicY = sumY>>25;
+
+  uint32_t cordicMag(0);
+  int cordicPhase(0);
+  cordic(cordicX, cordicY, cordicPhase, cordicMag);
+
+  int met  = (cordicMag % (1<<12)) | ((cordicMag >= (1<<12)) ? (1<<12):0);
+  int metPhi = cordicToMETPhi(cordicPhase);
+  assert(metPhi >=0 && metPhi < 72);
+
+  return std::make_tuple(sumEt, met, metPhi);
+}
+
+// phase 3Q16 to 72 (5719)
+int cordicToMETPhi(int phase)
+{
+  std::array<int, 73> values;
+  for(int i=0; i<values.size(); ++i)
+    values[i] = static_cast<int>(pow(2.,16)*(i-36)*M_PI/36);
+
+  for(int i=0; i<values.size()-1; ++i)
+    if ( phase >= values[i] && phase < values[i+1] )
+      return i;
+  return -1;
 }
