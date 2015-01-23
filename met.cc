@@ -4,6 +4,7 @@
 #include <tuple>
 #include <cmath>
 #include <cassert>
+#include <random>
 
 #include "CordicXilinx.h"
 
@@ -17,12 +18,38 @@ class Region
       assert((irgn & -2) == 0);
       assert(et>=0 && et<(1<<10));
     };
+    // Easy random region data constructor
+    Region(uint32_t random)
+    {
+      // each attempt at choosing a location
+      // has a chance of failing 2^-6. 4 fails
+      // in a row is 2^-24
+      int n = random % (1<<8);
+      while ( n >= 18*14 )
+      {
+        random >>= 8;
+        n = random % (1<<8);
+      }
+      icrate = n % 18;
+      icard = (n/18)/2;
+      irgn = (n/18)%2;
+
+      // Et is mostly small, prefer range 2^4
+      // and do full only occasionally, 1/128
+      bool chooseNoise = random % (1<<7) != 0;
+      random >>= 7;
+      if ( chooseNoise )
+        et = random % (1<<4);
+      else
+        et = random % (1<<10);
+    };
+
     int icrate;
     int icard;
     int irgn;
     int et;
 
-    int iphi()
+    int iphi() const
     {
       int phi_index = icrate % 9;
       if ((icard == 0) || (icard == 2) || (icard == 4))
@@ -83,13 +110,21 @@ int main (int argc, char ** argv)
     }
     else
     {
-      std::vector<Region> regionET = {
-        {1,  2, 1, 120},
-        {3,  4, 0, 32},
-        {15, 1, 1, 88}
-      };
-      auto result = doSumAndMET(regionET);
-      std::cout << "sum_et: " << std::get<0>(result) << ", met: " << std::get<1>(result) << ", met phi: " << std::get<2>(result) << std::endl;
+      std::mt19937 rand;
+      for(int trial=0; trial<100000; ++trial)
+      {
+        std::vector<Region> regionEt;
+        uint32_t nRegions = rand()%128;
+        regionEt.reserve(nRegions);
+        for(uint32_t i=0; i<nRegions; ++i)
+          regionEt.push_back(Region(rand()));
+
+        //std::cout << "Regions: " << nRegions << std::endl;
+        //for(const auto& r : regionEt) std::cout << "Region " << r.icrate << ", " << r.icard << ", " << r.irgn << ", " << r.et << std::endl;
+        int sumEt, met, phi;
+        std::tie(sumEt, met, phi) = doSumAndMET(regionEt);
+        std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
+      }
     }
 }
 
@@ -123,7 +158,7 @@ doSumAndMET(std::vector<Region>& regionEt)
 // 13 13 13 8 7 5
   std::array<int, 18> sumEtaPos{};
   std::array<int, 18> sumEtaNeg{};
-  for ( auto& r : regionEt )
+  for (const auto& r : regionEt)
   {
     if ( r.icrate < 9 )
       sumEtaNeg[r.iphi()] += r.et;
