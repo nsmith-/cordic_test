@@ -14,7 +14,7 @@ int main (int argc, char ** argv)
     // CordicXIP(int inputBits, int magBits, int phiBits);
     CordicXIP xilinx(24, 19, 19);
     // CordicXilinx(int inputBits, int outputBits, int phiScale, bool debug);
-    CordicXilinx nick(24, 19, 1<<19, false);
+    CordicXilinx nick(24, 19, false);
  
     std::string fname;
     if ( argc >= 2 )

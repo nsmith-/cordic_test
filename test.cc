@@ -15,7 +15,7 @@ int main (int argc, char ** argv)
     // CordicXIP(int inputBits, int magBits, int phiBits);
     CordicXIP xilinx(24, 19, 19);
     // CordicXilinx(int inputBits, int outputBits, int phiScale);
-    CordicXilinx nick(24, 19, 1<<19, argc > 2);
+    CordicXilinx nick(24, 19, argc > 2);
     
     auto compare = [&xilinx,&nick](int x, int y) -> bool
     {
