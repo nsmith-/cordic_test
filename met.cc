@@ -67,6 +67,7 @@ std::tuple<int, int, int> doSumAndMET(std::vector<Region>& regionEt);
 int cordicToMETPhi(int phase);
 
 CordicXilinx cordic(24, 19);
+std::array<int, 73> phiValues;
 std::array<long, 5> cosines
 {
   static_cast<long>(pow(2,30)*cos( 0*M_PI/180)),
@@ -86,49 +87,76 @@ std::array<long, 5> sines
 
 int main (int argc, char ** argv)
 {
-    if ( argc > 2 )
+  for(int i=0; i<phiValues.size(); ++i)
+    phiValues[i] = static_cast<int>(pow(2.,16)*(i-36)*M_PI/36);
+  if ( argc > 4 )
+  {
+    int crate = atoi(argv[1]);
+    int card = atoi(argv[2]);
+    int region = atoi(argv[3]);
+    int et = atoi(argv[4]);
+
+    std::vector<Region> regionEt{
+      {crate, card, region, et}
+    };
+    for(const auto& r : regionEt)
+      std::cout << "Region " << r.icrate << ", " << r.icard << ", " << r.irgn << ", " << r.et << 
+        "  phi = " << r.iphi() << ", met phi expected: " << ((r.iphi()+9)%18)*4 << std::endl;
+    int sumEt, met, phi;
+    std::tie(sumEt, met, phi) = doSumAndMET(regionEt);
+    std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
+  }
+  else
+  {
+    std::array<double, 18> sinPhi;
+    std::array<double, 18> cosPhi;
+    for(int i=0; i<18; ++i)
     {
-      int et = atoi(argv[1]);
-      int phi = atoi(argv[2]);
-
-      int sinphi = pow(2., 15)*sin(phi*M_PI/9)+0.5;
-      int cosphi = pow(2., 15)*cos(phi*M_PI/9)+0.5;
-
-      int ex = (et*cosphi) >> 10;
-      int ey = (et*sinphi) >> 10;
-
-      std::cout << "ex int: " << ex << " double: " << et*32*cos(phi*M_PI/9) << " diff: " << ex - et*32*cos(phi*M_PI/9) << std::endl;
-      std::cout << "ey int: " << ey << " double: " << et*32*sin(phi*M_PI/9) << " diff: " << ey - et*32*sin(phi*M_PI/9) << std::endl;
-
-      uint32_t sum_et;
-      int sum_phi;
-      cordic(ex, ey, sum_phi, sum_et);
-
-      double phi_out = sum_phi*pow(2., -16)*9./M_PI;
-      while ( phi_out < 0 ) phi_out += 18.;
-
-      std::cout << "sum_et: " << sum_et << " phi: " << phi_out << std::endl;
+      sinPhi[i] = sin(i*M_PI/9);
+      cosPhi[i] = cos(i*M_PI/9);
     }
-    else
+    auto callback = [&sinPhi,&cosPhi](std::array<uint32_t, 253> rand) -> bool
     {
-      auto callback = [](std::array<uint32_t, 129> rand) -> bool
+      std::vector<Region> regionEt;
+      uint32_t nRegions = rand[252]%252;
+      regionEt.reserve(nRegions);
+      for(uint32_t i=0; i<nRegions; ++i)
+        regionEt.push_back(Region(rand[i]));
+
+      int sumEt, met, phi;
+      std::tie(sumEt, met, phi) = doSumAndMET(regionEt);
+
+      double sumx(0);
+      double sumy(0);
+      for(auto& region : regionEt)
       {
-        std::vector<Region> regionEt;
-        uint32_t nRegions = rand[128]%128;
-        regionEt.reserve(nRegions);
-        for(uint32_t i=0; i<nRegions; ++i)
-          regionEt.push_back(Region(rand[i]));
+        sumx += region.et * cosPhi[region.iphi()];
+        sumy += region.et * sinPhi[region.iphi()];
+      }
+      double expected_phi = atan2(sumy, sumx)*36/M_PI+36;
+      double fpu_met = sqrt(sumx*sumx+sumy*sumy);
+      double difference = phi - expected_phi;
+      if ( difference > 36. ) difference -= 72;
+      if ( difference < -36. ) difference += 72;
 
-        //std::cout << "Regions: " << nRegions << std::endl;
-        //for(const auto& r : regionEt) std::cout << "Region " << r.icrate << ", " << r.icard << ", " << r.irgn << ", " << r.et << std::endl;
-        int sumEt, met, phi;
-        std::tie(sumEt, met, phi) = doSumAndMET(regionEt);
-        //std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
-        return true;
-      };
-      Fuzzer<129> fuzzer;
-      fuzzer.fuzz(callback);
-    }
+      if ( (fabs(difference) > 2 && fpu_met >= 1) || fabs(fpu_met-met) > 2 )
+      {
+        std::cout << "Bad seed: " << std::endl;
+        for (auto r : rand) std::cout << r << ", ";
+        std::cout << std::endl;
+        for(const auto& r : regionEt)
+          std::cout << "Region " << r.icrate << ", " << r.icard << ", " << r.irgn << ", " << r.et << ", iphi " << r.iphi() << std::endl;
+        std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
+        std::cout << "fpu met: " << fpu_met << ", phi: " << expected_phi << std::endl;
+        std::cout << "diff : " << difference << std::endl;
+        return false;
+      }
+      return true;
+    };
+
+    Fuzzer<253> fuzzer;
+    fuzzer.fuzz(callback);
+  }
 }
 
 std::tuple<int, int, int>
@@ -232,12 +260,9 @@ doSumAndMET(std::vector<Region>& regionEt)
 // phase 3Q16 to 72 (5719)
 int cordicToMETPhi(int phase)
 {
-  std::array<int, 73> values;
-  for(int i=0; i<values.size(); ++i)
-    values[i] = static_cast<int>(pow(2.,16)*(i-36)*M_PI/36);
 
-  for(int i=0; i<values.size()-1; ++i)
-    if ( phase >= values[i] && phase < values[i+1] )
+  for(int i=0; i<phiValues.size()-1; ++i)
+    if ( phase >= phiValues[i] && phase < phiValues[i+1] )
       return i;
   return -1;
 }
