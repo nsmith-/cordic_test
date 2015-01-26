@@ -6,6 +6,7 @@
 #include <cassert>
 #include <random>
 
+#include "fuzzer.h"
 #include "CordicXilinx.h"
 
 class Region
@@ -110,21 +111,23 @@ int main (int argc, char ** argv)
     }
     else
     {
-      std::mt19937 rand;
-      for(int trial=0; trial<100000; ++trial)
+      auto callback = [](std::array<uint32_t, 129> rand) -> bool
       {
         std::vector<Region> regionEt;
-        uint32_t nRegions = rand()%128;
+        uint32_t nRegions = rand[128]%128;
         regionEt.reserve(nRegions);
         for(uint32_t i=0; i<nRegions; ++i)
-          regionEt.push_back(Region(rand()));
+          regionEt.push_back(Region(rand[i]));
 
         //std::cout << "Regions: " << nRegions << std::endl;
         //for(const auto& r : regionEt) std::cout << "Region " << r.icrate << ", " << r.icard << ", " << r.irgn << ", " << r.et << std::endl;
         int sumEt, met, phi;
         std::tie(sumEt, met, phi) = doSumAndMET(regionEt);
-        std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
-      }
+        //std::cout << "sum_et: " << sumEt << ", met: " << met << ", met phi: " << phi << std::endl;
+        return true;
+      };
+      Fuzzer<129> fuzzer;
+      fuzzer.fuzz(callback);
     }
 }
 

@@ -2,11 +2,8 @@
 #include <iostream>
 #include <vector>
 #include <cmath>
-#include <random>
-#include <atomic>
-#include <thread>
-#include <chrono>
 
+#include "fuzzer.h"
 #include "CordicXIP.h"
 #include "CordicXilinx.h"
 
@@ -85,46 +82,14 @@ int main (int argc, char ** argv)
     else
     {
         // Test random input
-        std::mt19937 rand(42);
-        int runs(0), errors(0);
-        std::atomic_bool run(true);
-        std::thread keywatch([&run]()
+        auto callback = [&compare](std::array<uint32_t, 2> rand) -> bool
         {
-            std::cout << "Press q<Enter> to exit" << std::endl;
-            char c;
-            while(run)
-            {
-                std::cin >> c;
-                if ( c == 'q' )
-                {
-                    run=false;
-                    std::cout << "Stopping..." << std::endl;
-                }
-            }
-        });
-        std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
-        start = std::chrono::high_resolution_clock::now();
-        while ( run )
-        {
-            runs++;
             // Uniform in [-2^23, 2^23)
-            int x = (rand()>>8)-(1<<23);
-            int y = (rand()>>8)-(1<<23);
-            if ( !compare(x,y) )
-            {
-                errors++;
-                std::cout << "err x,y: " << x << " " << y << std::endl;
-            }
-            
-            if ( runs % 100000 == 0 )
-            {
-                end = std::chrono::high_resolution_clock::now();
-                double us = std::chrono::duration_cast<std::chrono::microseconds>(end-start).count();
-                start = end;
-                printf("\rErrors: % 8d / % 8d  (% 2.2f\%)   Rate: % 4.0f kHz", errors, runs, errors*100. / runs, 1.e8/us);
-            }
-            std::cout.flush();
-        }
-        keywatch.join();
+            int x = (rand[0]>>8)-(1<<23);
+            int y = (rand[1]>>8)-(1<<23);
+            return compare(x, y);
+        };
+        Fuzzer<2> fuzzer;
+        fuzzer.fuzz(callback);
     }
 }
