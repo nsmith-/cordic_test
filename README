@@ -1,4 +1,4 @@
-Use ./make.sh to make
+Compile with `make`
 You will need the Xilinx CORDIC emulation library unzipped in this folder
 'cordic_v6_0_bitacc_cmodel_lin64.zip'
 
