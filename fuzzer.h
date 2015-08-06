@@ -32,7 +32,7 @@ class Fuzzer
       running = true;
       std::array<uint32_t, _Nm> randomValues;
 
-      std::thread keywatch(&Fuzzer::keywatcher, std::ref(*this));
+      std::thread keywatch(&Fuzzer::keywatcher, this);
       std::chrono::time_point<std::chrono::high_resolution_clock> start, end;
       start = std::chrono::high_resolution_clock::now();
       while ( running )

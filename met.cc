@@ -242,7 +242,7 @@ doSumAndMET(std::vector<Region>& regionEt)
     sumX += sumsForCos[i]*cosines[i];
     sumY += sumsForSin[i]*sines[i];
   }
-  assert(abs(sumX)<(1l<<48) && abs(sumY)<(1l<<48));
+  assert(labs(sumX)<(1l<<48) && labs(sumY)<(1l<<48));
   int cordicX = sumX>>25;
   int cordicY = sumY>>25;
 
